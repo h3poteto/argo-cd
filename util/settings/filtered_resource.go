@@ -3,9 +3,10 @@ package settings
 import "github.com/argoproj/argo-cd/util/glob"
 
 type FilteredResource struct {
-	APIGroups []string `json:"apiGroups,omitempty"`
-	Kinds     []string `json:"kinds,omitempty"`
-	Clusters  []string `json:"clusters,omitempty"`
+	APIGroups []string            `json:"apiGroups,omitempty"`
+	Kinds     []string            `json:"kinds,omitempty"`
+	Clusters  []string            `json:"clusters,omitempty"`
+	Labels    []map[string]string `json:"labels,omitempty"`
 }
 
 func (r FilteredResource) matchGroup(apiGroup string) bool {
@@ -35,6 +36,19 @@ func (r FilteredResource) MatchCluster(cluster string) bool {
 	return len(r.Clusters) == 0
 }
 
-func (r FilteredResource) Match(apiGroup, kind, cluster string) bool {
-	return r.matchGroup(apiGroup) && r.matchKind(kind) && r.MatchCluster(cluster)
+func (r FilteredResource) matchLabels(label map[string]string) bool {
+	for _, excludedLabels := range r.Labels {
+		for key, specifiedLabel := range excludedLabels {
+			if existingLabel, ok := label[key]; ok {
+				if glob.Match(specifiedLabel, existingLabel) {
+					return true
+				}
+			}
+		}
+	}
+	return len(r.Labels) == 0
+}
+
+func (r FilteredResource) Match(apiGroup, kind, cluster string, label map[string]string) bool {
+	return r.matchGroup(apiGroup) && r.matchKind(kind) && r.MatchCluster(cluster) && r.matchLabels(label)
 }
